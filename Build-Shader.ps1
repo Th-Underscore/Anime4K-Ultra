@@ -1,34 +1,13 @@
 # --- CONFIGURATION ---
-# List your files in the exact order they should be executed
 $ShaderComponents = @{
     "Anime4K-Ultra.glsl" = @(
-        "FSR-Ani.glsl",
-        # "NVSharpen-Ani.glsl",
-        "Anime4K_Thin_AA.glsl"
+        "src/FSR-Ani.glsl",
+        "src/Anime4K_Thin_AA.glsl"
     )
     "Anime4K-Ultra_Deblur.glsl" = @(
-        "FSR-Ani.glsl",
-        "Anime4K_Thin_AA_Deblur.glsl"
+        "src/FSR-Ani.glsl",
+        "src/Anime4K_Thin_AA_Deblur.glsl"
     )
-    # "Anime4K-Ultra_Soft.glsl" = @(
-    #     "FSR-Ani.glsl",
-    #     "Anime4K_Thin_AA.glsl",
-    #     "Anime4K_Deblur_DoG.glsl"
-    # )
-    # "Anime4K-Ultra_Test.glsl" = @(
-    #     # "FSRCNNX_x2_16-0-4-1_anime_enhance.glsl",
-    #     "CAS-scaled.glsl",
-    #     "FSR-Ani.glsl",
-    #     "Anime4K_Thin_AA.glsl"
-    # )
-    # "Anime4K-Ultra_Test2.glsl" = @(
-    #     "FSR-Ani.glsl",
-    #     "Anime4K_Thin_AA.glsl"
-    # )
-    # "Anime4K-Ultra_Test3.glsl" = @(
-    #     "FSR-Ani.glsl",
-    #     "Anime4K_Thin_AA_New.glsl"
-    # )
 }
 
 # --- THE CONSOLIDATED HEADER ---
@@ -74,13 +53,11 @@ $FullHeader = @"
 "@
 
 # --- BUILD LOGIC ---
-
 $ShaderComponents.GetEnumerator() | ForEach-Object {
     $OutputFile = $_.Key
     $Components = $_.Value
     Write-Host "Building shader: $OutputFile..." -ForegroundColor Cyan
 
-    # 1. Start with the Header
     $FullHeader | Out-File -FilePath $OutputFile -Encoding utf8
 
     foreach ($FileName in $Components) {
@@ -96,7 +73,7 @@ $ShaderComponents.GetEnumerator() | ForEach-Object {
             $FoundCode = $false
 
             foreach ($Line in $Lines) {
-                # This logic skips all leading comments/empty lines until it hits:
+                # Skip all leading comments/empty lines until:
                 # - An mpv directive (starts with !)
                 # - A preprocessor directive (starts with #)
                 # - A code keyword (float, vec, void, in, out)
