@@ -8,6 +8,7 @@
 // - Significantly lighter performance than Anime4K (Fast)
 //
 // CREDITS:
+//  - bloc97, for creating Anime4K
 //  - agilyd, for porting FSR to GLSL
 // =============================================================================
 // THIRD-PARTY LICENSES:

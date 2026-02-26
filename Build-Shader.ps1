@@ -60,18 +60,19 @@ $ShaderComponents.GetEnumerator() | ForEach-Object {
     $Components = $_.Value
     Write-Host "Building shader: $OutputFile..." -ForegroundColor Cyan
 
-    $FullHeader | Out-File -FilePath $OutputFile -Encoding utf8
+    $FullHeader | Out-File -LiteralPath $OutputFile -Encoding utf8
 
     foreach ($FileName in $Components) {
-        if (Test-Path $FileName) {
+        if (Test-Path -Literalpath $FileName) {
+            $file = Get-Item -LiteralPath $FileName
             Write-Host "Processing $FileName..." -ForegroundColor Yellow
             
             # Add a visual separator for the code
-            "`n`n// " + ("=" * 77) | Out-File -FilePath $OutputFile -Append
-            "// COMPONENT: $FileName" | Out-File -FilePath $OutputFile -Append
-            "// " + ("=" * 77) + "`n" | Out-File -FilePath $OutputFile -Append
+            "`n`n// " + ("=" * 77) | Out-File -LiteralPath $OutputFile -Append
+            "// COMPONENT: $($file.Name)" | Out-File -LiteralPath $OutputFile -Append
+            "// " + ("=" * 77) + "`n" | Out-File -LiteralPath $OutputFile -Append
 
-            $Lines = Get-Content $FileName
+            $Lines = Get-Content -LiteralPath $file
             $FoundCode = $false
 
             foreach ($Line in $Lines) {
@@ -84,7 +85,7 @@ $ShaderComponents.GetEnumerator() | ForEach-Object {
                 }
 
                 if ($FoundCode) {
-                    $Line | Out-File -FilePath $OutputFile -Append
+                    $Line | Out-File -LiteralPath $OutputFile -Append
                 }
             }
         } else {
