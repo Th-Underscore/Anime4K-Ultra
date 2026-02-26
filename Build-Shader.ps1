@@ -5,6 +5,7 @@ $ShaderComponents = @{
         "src/Anime4K_Thin_AA.glsl"
     )
     "Anime4K-Ultra_Deblur.glsl" = @(
+        "src/Save-Native.glsl",
         "src/FSR-Ani.glsl",
         "src/Anime4K_Thin_AA_Deblur.glsl"
     )
@@ -22,6 +23,7 @@ $FullHeader = @"
 // - Significantly lighter performance than Anime4K (Fast)
 //
 // CREDITS:
+//  - bloc97, for creating Anime4K
 //  - agilyd, for porting FSR to GLSL
 // =============================================================================
 // THIRD-PARTY LICENSES:

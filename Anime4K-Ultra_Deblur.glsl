@@ -8,6 +8,7 @@
 // - Significantly lighter performance than Anime4K (Fast)
 //
 // CREDITS:
+//  - bloc97, for creating Anime4K
 //  - agilyd, for porting FSR to GLSL
 // =============================================================================
 // THIRD-PARTY LICENSES:
@@ -39,7 +40,21 @@
 
 
 // =============================================================================
-// COMPONENT: FSR-Ani.glsl
+// COMPONENT: src/Save-Native.glsl
+// =============================================================================
+
+//!DESC Save-Native-Resolution
+//!HOOK LUMA
+//!BIND HOOKED
+//!SAVE NATIVE_RES
+//!COMPONENTS 1
+vec4 hook() {
+    return HOOKED_tex(HOOKED_pos);
+}
+
+
+// =============================================================================
+// COMPONENT: src/FSR-Ani.glsl
 // =============================================================================
 
 //!HOOK LUMA
@@ -465,17 +480,27 @@ vec4 hook() {
 
 
 // =============================================================================
-// COMPONENT: Anime4K_Thin_AA_Deblur.glsl
+// COMPONENT: src/Anime4K_Thin_AA_Deblur.glsl
 // =============================================================================
+
+//!DESC Save-Native-Resolution
+//!HOOK LUMA
+//!BIND HOOKED
+//!SAVE NATIVE_RES
+//!WHEN OUTPUT.w LUMA.w >
+//!COMPONENTS 1
+vec4 hook() {
+    return HOOKED_tex(HOOKED_pos);
+}
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND HOOKED
 //!SAVE LINELUMA_SHARP
 //!COMPONENTS 1
 
-#define D (0.75 * HOOKED_size.y / NATIVE_size.y) // Dynamically scales sampling radius based on upscale factor
+#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y) // Dynamically scales sampling radius based on upscale factor
 #define LUMA_SHARP_AMOUNT 1.5
 
 float get_luma(vec4 rgba) { return dot(vec3(0.299, 0.587, 0.114), rgba.rgb); }
@@ -492,7 +517,7 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND EASUTEX
 //!SAVE LINELUMA_SHARP
 //!WIDTH EASUTEX.w
@@ -500,7 +525,7 @@ vec4 hook() {
 //!COMPONENTS 1
 //!WHEN OUTPUT.w MAIN.w >
 
-#define D (0.75 * EASUTEX_size.y / NATIVE_size.y)
+#define D (0.75 * EASUTEX_size.y / NATIVE_RES_size.y)
 #define LUMA_SHARP_AMOUNT 1.5
 
 vec4 hook() {
@@ -515,14 +540,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Sobel-X
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINELUMA_SHARP
 //!SAVE LINESOBEL
 //!WIDTH LINELUMA_SHARP.w
 //!HEIGHT LINELUMA_SHARP.h
 //!COMPONENTS 2
 
-#define D (0.75 * LINELUMA_SHARP_size.y / NATIVE_size.y)
+#define D (0.75 * LINELUMA_SHARP_size.y / NATIVE_RES_size.y)
 
 vec4 hook() {
     float l = LINELUMA_SHARP_texOff(vec2(-D, 0.0)).x;
@@ -533,14 +558,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Sobel-Y
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
 //!WIDTH LINESOBEL.w
 //!HEIGHT LINESOBEL.h
 //!COMPONENTS 1
 
-#define D (0.75 * LINESOBEL_size.y / NATIVE_size.y)
+#define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
 
 vec4 hook() {
     float tx = LINESOBEL_texOff(vec2(0.0,-D)).x;
@@ -555,14 +580,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Gaussian-X
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
 //!WIDTH LINESOBEL.w
 //!HEIGHT LINESOBEL.h
 //!COMPONENTS 1
 
-#define SPATIAL_SIGMA (1.5 * LINESOBEL_size.y / NATIVE_size.y) // Base blur radius for edge detection (~0.5 to 3.0 by modifying the '1.5' multiplier)
+#define SPATIAL_SIGMA (1.5 * LINESOBEL_size.y / NATIVE_RES_size.y) // Base blur radius for edge detection (~0.5 to 3.0 by modifying the '1.5' multiplier)
 #define KERNELSIZE (max(int(ceil(SPATIAL_SIGMA * 2.0)), 1) * 2 + 1) // Auto-calculates kernel footprint size; do not modify manually
 
 float gaussian(float x, float s) { return exp(-0.5 * (x/s) * (x/s)); }
@@ -580,14 +605,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Gaussian-Y
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
 //!WIDTH LINESOBEL.w
 //!HEIGHT LINESOBEL.h
 //!COMPONENTS 1
 
-#define SPATIAL_SIGMA (1.5 * LINESOBEL_size.y / NATIVE_size.y) // Base blur radius for edge detection (~0.5 to 3.0 by modifying the '1.5' multiplier)
+#define SPATIAL_SIGMA (1.5 * LINESOBEL_size.y / NATIVE_RES_size.y) // Base blur radius for edge detection (~0.5 to 3.0 by modifying the '1.5' multiplier)
 #define KERNELSIZE (max(int(ceil(SPATIAL_SIGMA * 2.0)), 1) * 2 + 1) // Auto-calculates kernel footprint size; do not modify manually
 
 float gaussian(float x, float s) { return exp(-0.5 * (x/s) * (x/s)); }
@@ -605,14 +630,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Kernel-X
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
 //!WIDTH LINESOBEL.w
 //!HEIGHT LINESOBEL.h
 //!COMPONENTS 3
 
-#define D (0.75 * LINESOBEL_size.y / NATIVE_size.y)
+#define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
 
 vec4 hook() {
     float l = LINESOBEL_texOff(vec2(-D, 0.0)).x;
@@ -623,14 +648,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Kernel-Y
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
 //!WIDTH LINESOBEL.w
 //!HEIGHT LINESOBEL.h
 //!COMPONENTS 3
 
-#define D (0.75 * LINESOBEL_size.y / NATIVE_size.y)
+#define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
 
 vec4 hook() {
     float tx = LINESOBEL_texOff(vec2(0.0,-D)).x;
@@ -644,14 +669,14 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Line-Confidence
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINECONF
 //!WIDTH LINESOBEL.w
 //!HEIGHT LINESOBEL.h
 //!COMPONENTS 1
 
-#define D (0.75 * LINESOBEL_size.y / NATIVE_size.y)
+#define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
 #define TANGENT_TAPS  5   // Samples along line tangent (int 1 to 10); higher bridges wider gaps but costs performance
 #define TANGENT_SIGMA 2.0 // Gaussian falloff for tangent tap weights (0.1 to ~5.0)
 
@@ -674,7 +699,7 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Warp
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND LINESOBEL
 //!BIND LINECONF
@@ -695,7 +720,7 @@ vec4 hook() {
         return HOOKED_tex(HOOKED_pos);
 
     // Warp distance scales natively with the dynamic upscale factor
-    float relstr = (LINESOBEL_size.y / NATIVE_size.y) * THIN_STRENGTH;
+    float relstr = (LINESOBEL_size.y / NATIVE_RES_size.y) * THIN_STRENGTH;
     vec2 d = LINESOBEL_pt;
     vec2 offset = vec2(0.0);
 
@@ -724,12 +749,12 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-PW-Sobel-X
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND HOOKED
 //!SAVE PWSOBEL
 //!COMPONENTS 2
 
-#define D (0.75 * HOOKED_size.y / NATIVE_size.y)
+#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 
 float pw_luma(vec4 c) { return dot(vec3(0.299, 0.587, 0.114), c.rgb); }
 
@@ -742,13 +767,13 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-PW-Sobel-Y
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!SAVE PWSOBEL
 //!COMPONENTS 3
 
-#define D (0.75 * PWSOBEL_size.y / NATIVE_size.y)
+#define D (0.75 * PWSOBEL_size.y / NATIVE_RES_size.y)
 
 vec4 hook() {
     float tx = PWSOBEL_texOff(vec2(0.0,-D)).x;
@@ -763,12 +788,12 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Dealias-Deblur
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
 
-#define D (0.75 * HOOKED_size.y / NATIVE_size.y)
+#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DEALIAS_STRENGTH 1.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
 #define DEBLUR_AMOUNT    0.5  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
 #define CONF_LOW         0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
@@ -802,12 +827,12 @@ vec4 hook() {
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Darken
 //!HOOK MAIN
-//!BIND NATIVE
+//!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
 
-#define D (0.75 * HOOKED_size.y / NATIVE_size.y)
+#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DARKEN_STRENGTH 0.21 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
 #define DARKEN_MAX_FRAC 0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
 #define CONF_LOW        0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
