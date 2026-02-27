@@ -838,8 +838,8 @@ vec4 hook() {
 //!BIND LINECONF
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DARKEN_STRENGTH 0.28 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
-#define DARKEN_MAX_FRAC 0.28 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
+#define DARKEN_STRENGTH 0.21 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
+#define DARKEN_MAX_FRAC 0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
 #define CONF_LOW        0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
 #define CONF_HIGH       0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
