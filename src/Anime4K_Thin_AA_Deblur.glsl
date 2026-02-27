@@ -32,6 +32,16 @@ vec4 hook() {
     return HOOKED_tex(HOOKED_pos);
 }
 
+//!DESC Save-Native-Resolution
+//!HOOK LUMA
+//!BIND HOOKED
+//!SAVE NATIVE_RES
+//!WHEN OUTPUT.w LUMA.w >
+//!COMPONENTS 1
+vec4 hook() {
+    return HOOKED_tex(HOOKED_pos);
+}
+
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
 //!HOOK MAIN
 //!BIND NATIVE_RES
@@ -82,8 +92,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINELUMA_SHARP
 //!SAVE LINESOBEL
-//!WIDTH LINELUMA_SHARP.w
-//!HEIGHT LINELUMA_SHARP.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 2
 
 #define D (0.75 * LINELUMA_SHARP_size.y / NATIVE_RES_size.y)
@@ -100,8 +110,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 1
 
 #define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
@@ -122,8 +132,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 1
 
 #define SPATIAL_SIGMA (1.5 * LINESOBEL_size.y / NATIVE_RES_size.y) // Base blur radius for edge detection (~0.5 to 3.0 by modifying the '1.5' multiplier)
@@ -147,8 +157,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 1
 
 #define SPATIAL_SIGMA (1.5 * LINESOBEL_size.y / NATIVE_RES_size.y) // Base blur radius for edge detection (~0.5 to 3.0 by modifying the '1.5' multiplier)
@@ -172,8 +182,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 3
 
 #define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
@@ -190,8 +200,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINESOBEL
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 3
 
 #define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
@@ -211,8 +221,8 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
 //!SAVE LINECONF
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
 //!COMPONENTS 1
 
 #define D (0.75 * LINESOBEL_size.y / NATIVE_RES_size.y)
@@ -242,8 +252,6 @@ vec4 hook() {
 //!BIND HOOKED
 //!BIND LINESOBEL
 //!BIND LINECONF
-//!WIDTH LINESOBEL.w
-//!HEIGHT LINESOBEL.h
 
 #define THIN_STRENGTH         0.06 // Base displacement step in output pixels per iteration (0.0 to ~0.2)
 #define ITERATIONS            3    // Number of coordinate warping passes to thin lines (int 0 to ~10)
@@ -258,11 +266,9 @@ vec4 hook() {
     if (LINECONF_tex(LINECONF_pos).x < CONF_LOW)
         return HOOKED_tex(HOOKED_pos);
 
-    // Warp distance scales natively with the dynamic upscale factor
     float relstr = (LINESOBEL_size.y / NATIVE_RES_size.y) * THIN_STRENGTH;
     vec2 d = LINESOBEL_pt;
     vec2 offset = vec2(0.0);
-
     for (int i = 0; i < ITERATIONS; i++) {
         vec2 dn = LINESOBEL_tex(LINESOBEL_pos + offset).xy;
         float mag = length(dn);
@@ -271,7 +277,7 @@ vec4 hook() {
         else break;
     }
 
-    if (length(offset / d) < BLURRY_DISP_THRESHOLD) {
+    if (length(offset / HOOKED_pt) < BLURRY_DISP_THRESHOLD) {
         float weak_relstr = relstr * BLURRY_RELSTR_MULT;
         float weak_threshold = MIN_EDGE_STRENGTH * BLURRY_EDGE_MULT;
         for (int i = 0; i < BLURRY_EXTRA_ITERS; i++) {
@@ -282,7 +288,6 @@ vec4 hook() {
             else break;
         }
     }
-
     return HOOKED_tex(HOOKED_pos + offset);
 }
 
@@ -372,8 +377,8 @@ vec4 hook() {
 //!BIND LINECONF
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DARKEN_STRENGTH 0.21 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
-#define DARKEN_MAX_FRAC 0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
+#define DARKEN_STRENGTH 0.28 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
+#define DARKEN_MAX_FRAC 0.28 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
 #define CONF_LOW        0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
 #define CONF_HIGH       0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
