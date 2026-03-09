@@ -329,7 +329,7 @@ vec4 hook() {
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DEALIAS_STRENGTH 1.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
-#define DEBLUR_AMOUNT    0.5  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
+#define DEBLUR_AMOUNT    1.0  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
 #define CONF_LOW         0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
 #define CONF_HIGH        0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
@@ -365,12 +365,13 @@ vec4 hook() {
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
-
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DARKEN_STRENGTH 0.21 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
-#define DARKEN_MAX_FRAC 0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
-#define CONF_LOW        0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
-#define CONF_HIGH       0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
+#define DARKEN_STRENGTH    0.22 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
+#define DARKEN_MAX_FRAC    0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0)
+#define DARKEN_LUMA_FLOOR  0.08 // Below this luma, full darkening is applied (canonical dark ink lines)
+#define DARKEN_LUMA_CEIL   0.72 // Above this luma, darkening is fully suppressed (coloured lines / highlights)
+#define CONF_LOW           0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
+#define CONF_HIGH          0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
 
@@ -400,7 +401,10 @@ vec4 hook() {
 
     vec4 c = HOOKED_tex(HOOKED_pos);
     float l = get_luma(c.rgb);
-    float delta = min(effect_mask * valley * DARKEN_STRENGTH * l, l * DARKEN_MAX_FRAC);
+
+    float luma_gate = 1.0 - smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
+
+    float delta = min(effect_mask * valley * DARKEN_STRENGTH * l * luma_gate, l * DARKEN_MAX_FRAC);
     c.rgb *= clamp((l - delta) / max(l, 0.001), 0.0, 1.0);
     return c;
 }
