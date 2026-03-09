@@ -32,16 +32,6 @@ vec4 hook() {
     return HOOKED_tex(HOOKED_pos);
 }
 
-//!DESC Save-Native-Resolution
-//!HOOK LUMA
-//!BIND HOOKED
-//!SAVE NATIVE_RES
-//!WHEN OUTPUT.w LUMA.w >
-//!COMPONENTS 1
-vec4 hook() {
-    return HOOKED_tex(HOOKED_pos);
-}
-
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
 //!HOOK MAIN
 //!BIND NATIVE_RES
