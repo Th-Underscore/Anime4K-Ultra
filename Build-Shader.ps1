@@ -9,6 +9,16 @@ $ShaderComponents = @{
         "src/FSR-Ani.glsl",
         "src/Anime4K_Thin_AA_Deblur.glsl"
     )
+    "Anime4K-Ultra_Soft_Deblur.glsl" = @(
+        "src/Save-Native.glsl",
+        "src/FSR-Ani.glsl",
+        "src/Anime4K_Thin_AA_Soft_Deblur.glsl"
+    )
+    "Anime4K-Ultra_Smooth_Deblur.glsl" = @(
+        "src/Save-Native.glsl",
+        "src/Anime4K_Upscale_Original_x2.glsl",
+        "src/Anime4K_Thin_AA_Smooth_Deblur.glsl"
+    )
 }
 
 # --- THE CONSOLIDATED HEADER ---

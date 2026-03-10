@@ -1,19 +1,34 @@
+// =============================================================================
+// Shader: Anime4K-Ultra
+// Compiled by: Th-Underscore (2026)
+//
+// FEATURES:
+// - Combines FSR v1.0.2 and Custom Anime4K_Thin w/ De-Aliasing + Deblur
+// - Designed specifically to preserve film grain and fine textures
+// - Significantly lighter performance than Anime4K (Fast)
+//
+// CREDITS:
+//  - bloc97, for creating Anime4K
+//  - agilyd, for porting FSR to GLSL
+// =============================================================================
+// THIRD-PARTY LICENSES:
+//
+// 1. Anime4K (MIT) - Copyright (c) 2019-2021 bloc97
+// 2. FidelityFX FSR (MIT) - Copyright (c) 2021 Advanced Micro Devices, Inc.
+// 3. Anime4K-Ultra (MIT) - Copyright (c) 2026 Th-Underscore
+// =============================================================================
 // MIT License
-
-// Copyright (c) 2019-2021 bloc97
-// Copyright (c) 2026 Th-Underscore
-// All rights reserved.
-
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,58 +36,305 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+// =============================================================================
+
+
+// =============================================================================
+// COMPONENT: Save-Native.glsl
+// =============================================================================
 
 //!DESC Save-Native-Resolution
 //!HOOK LUMA
 //!BIND HOOKED
 //!SAVE NATIVE_RES
-//!WHEN OUTPUT.w LUMA.w >
 //!COMPONENTS 1
 vec4 hook() {
     return HOOKED_tex(HOOKED_pos);
 }
+
+
+// =============================================================================
+// COMPONENT: Anime4K_Upscale_Original_x2.glsl
+// =============================================================================
+
+//!DESC Anime4K-v3.2-Upscale-Original-x2-Luma
+//!HOOK MAIN
+//!BIND HOOKED
+//!SAVE LINELUMA
+//!COMPONENTS 1
+
+float get_luma(vec4 rgba) {
+	return dot(vec4(0.299, 0.587, 0.114, 0.0), rgba);
+}
+
+vec4 hook() {
+    return vec4(get_luma(HOOKED_tex(HOOKED_pos)), 0.0, 0.0, 0.0);
+}
+
+//!DESC Anime4K-v3.2-Upscale-Original-x2-Kernel-X
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND LINELUMA
+//!SAVE LUMAD
+//!WIDTH MAIN.w 2 *
+//!HEIGHT MAIN.h 2 *
+//!COMPONENTS 2
+
+vec4 hook() {
+	vec2 d = HOOKED_pt;
+	
+	//[tl  t tr]
+	//[ l  c  r]
+	//[bl  b br]
+	float l = LINELUMA_tex(HOOKED_pos + vec2(-d.x, 0.0)).x;
+	float c = LINELUMA_tex(HOOKED_pos).x;
+	float r = LINELUMA_tex(HOOKED_pos + vec2(d.x, 0.0)).x;
+	
+	
+	//Horizontal Gradient
+	//[-1  0  1]
+	//[-2  0  2]
+	//[-1  0  1]
+	float xgrad = (-l + r);
+	
+	//Vertical Gradient
+	//[-1 -2 -1]
+	//[ 0  0  0]
+	//[ 1  2  1]
+	float ygrad = (l + c + c + r);
+	
+	//Computes the luminance's gradient
+	return vec4(xgrad, ygrad, 0.0, 0.0);
+}
+
+
+//!DESC Anime4K-v3.2-Upscale-Original-x2-Kernel-Y
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND LUMAD
+//!SAVE LUMAD
+//!WIDTH MAIN.w 2 *
+//!HEIGHT MAIN.h 2 *
+//!COMPONENTS 2
+
+
+/* --------------------- SETTINGS --------------------- */
+
+//Strength of edge refinement, good values are between 0.2 and 4
+#define REFINE_STRENGTH 0.75
+
+
+/* --- MODIFY THESE SETTINGS BELOW AT YOUR OWN RISK --- */
+
+//Bias of the refinement function, good values are between 0 and 1
+#define REFINE_BIAS 0.0
+
+//Polynomial fit obtained by minimizing MSE error on image
+#define P5 ( 11.68129591)
+#define P4 (-42.46906057)
+#define P3 ( 60.28286266)
+#define P2 (-41.84451327)
+#define P1 ( 14.05517353)
+#define P0 (-1.081521930)
+
+/* ----------------- END OF SETTINGS ----------------- */
+
+float power_function(float x) {
+	float x2 = x * x;
+	float x3 = x2 * x;
+	float x4 = x2 * x2;
+	float x5 = x2 * x3;
+	
+	return P5*x5 + P4*x4 + P3*x3 + P2*x2 + P1*x + P0;
+}
+
+vec4 hook() {
+	vec2 d = HOOKED_pt;
+	
+	//[tl  t tr]
+	//[ l cc  r]
+	//[bl  b br]
+	float tx = LUMAD_tex(HOOKED_pos + vec2(0.0, -d.y)).x;
+	float cx = LUMAD_tex(HOOKED_pos).x;
+	float bx = LUMAD_tex(HOOKED_pos + vec2(0.0, d.y)).x;
+	
+	
+	float ty = LUMAD_tex(HOOKED_pos + vec2(0.0, -d.y)).y;
+	//float cy = LUMAD_tex(HOOKED_pos).y;
+	float by = LUMAD_tex(HOOKED_pos + vec2(0.0, d.y)).y;
+	
+	
+	//Horizontal Gradient
+	//[-1  0  1]
+	//[-2  0  2]
+	//[-1  0  1]
+	float xgrad = (tx + cx + cx + bx);
+	
+	//Vertical Gradient
+	//[-1 -2 -1]
+	//[ 0  0  0]
+	//[ 1  2  1]
+	float ygrad = (-ty + by);
+	
+	//Computes the luminance's gradient
+	float sobel_norm = clamp(sqrt(xgrad * xgrad + ygrad * ygrad), 0.0, 1.0);
+	
+	float dval = clamp(power_function(clamp(sobel_norm, 0.0, 1.0)) * REFINE_STRENGTH + REFINE_BIAS, 0.0, 1.0);
+	
+	return vec4(sobel_norm, dval, 0.0, 0.0);
+}
+
+//!DESC Anime4K-v3.2-Upscale-Original-x2-Kernel-X
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND LUMAD
+//!SAVE LUMAMM
+//!WIDTH MAIN.w 2 *
+//!HEIGHT MAIN.h 2 *
+//!COMPONENTS 2
+
+
+vec4 hook() {
+	vec2 d = HOOKED_pt;
+	
+	if (LUMAD_tex(HOOKED_pos).y < 0.1) {
+		return vec4(0.0);
+	}
+	
+	//[tl  t tr]
+	//[ l  c  r]
+	//[bl  b br]
+	float l = LUMAD_tex(HOOKED_pos + vec2(-d.x, 0.0)).x;
+	float c = LUMAD_tex(HOOKED_pos).x;
+	float r = LUMAD_tex(HOOKED_pos + vec2(d.x, 0.0)).x;
+	
+	//Horizontal Gradient
+	//[-1  0  1]
+	//[-2  0  2]
+	//[-1  0  1]
+	float xgrad = (-l + r);
+	
+	//Vertical Gradient
+	//[-1 -2 -1]
+	//[ 0  0  0]
+	//[ 1  2  1]
+	float ygrad = (l + c + c + r);
+	
+	
+	return vec4(xgrad, ygrad, 0.0, 0.0);
+}
+
+
+//!DESC Anime4K-v3.2-Upscale-Original-x2-Kernel-Y
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND LUMAD
+//!BIND LUMAMM
+//!SAVE LUMAMM
+//!WIDTH MAIN.w 2 *
+//!HEIGHT MAIN.h 2 *
+//!COMPONENTS 2
+
+vec4 hook() {
+	vec2 d = HOOKED_pt;
+	
+	if (LUMAD_tex(HOOKED_pos).y < 0.1) {
+		return vec4(0.0);
+	}
+	
+	//[tl  t tr]
+	//[ l cc  r]
+	//[bl  b br]
+	float tx = LUMAMM_tex(HOOKED_pos + vec2(0.0, -d.y)).x;
+	float cx = LUMAMM_tex(HOOKED_pos).x;
+	float bx = LUMAMM_tex(HOOKED_pos + vec2(0.0, d.y)).x;
+	
+	float ty = LUMAMM_tex(HOOKED_pos + vec2(0.0, -d.y)).y;
+	//float cy = LUMAMM_tex(HOOKED_pos).y;
+	float by = LUMAMM_tex(HOOKED_pos + vec2(0.0, d.y)).y;
+	
+	//Horizontal Gradient
+	//[-1  0  1]
+	//[-2  0  2]
+	//[-1  0  1]
+	float xgrad = (tx + cx + cx + bx);
+	
+	//Vertical Gradient
+	//[-1 -2 -1]
+	//[ 0  0  0]
+	//[ 1  2  1]
+	float ygrad = (-ty + by);
+	
+	float norm = sqrt(xgrad * xgrad + ygrad * ygrad);
+	if (norm <= 0.001) {
+		xgrad = 0.0;
+		ygrad = 0.0;
+		norm = 1.0;
+	}
+	
+	return vec4(xgrad/norm, ygrad/norm, 0.0, 0.0);
+}
+
+
+//!DESC Anime4K-v3.2-Upscale-Original-x2-Apply
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND LUMAD
+//!BIND LUMAMM
+//!WIDTH MAIN.w 2 *
+//!HEIGHT MAIN.h 2 *
+
+
+vec4 hook() {
+	vec2 d = HOOKED_pt;
+	
+	float dval = LUMAD_tex(HOOKED_pos).y;
+	if (dval < 0.1) {
+		return HOOKED_tex(HOOKED_pos);
+	}
+	
+	vec4 dc = LUMAMM_tex(HOOKED_pos);
+	if (abs(dc.x + dc.y) <= 0.0001) {
+		return HOOKED_tex(HOOKED_pos);
+	}
+	
+	float xpos = -sign(dc.x);
+	float ypos = -sign(dc.y);
+	
+	vec4 xval = HOOKED_tex(HOOKED_pos + vec2(d.x * xpos, 0.0));
+	vec4 yval = HOOKED_tex(HOOKED_pos + vec2(0.0, d.y * ypos));
+	
+	float xyratio = abs(dc.x) / (abs(dc.x) + abs(dc.y));
+	
+	vec4 avg = xyratio * xval + (1.0 - xyratio) * yval;
+	
+	return avg * dval + HOOKED_tex(HOOKED_pos) * (1.0 - dval);
+	
+}
+
+
+// =============================================================================
+// COMPONENT: Anime4K_Thin_AA_Smooth_Deblur.glsl
+// =============================================================================
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
 //!SAVE LINELUMA_SHARP
+//!WIDTH HOOKED.w
+//!HEIGHT HOOKED.h
 //!COMPONENTS 1
 
-#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y) // Dynamically scales sampling radius based on upscale factor
-#define LUMA_SHARP_AMOUNT 1.5
-
-float get_luma(vec4 rgba) { return dot(vec3(0.299, 0.587, 0.114), rgba.rgb); }
-
-vec4 hook() {
-    float c = get_luma(HOOKED_tex(HOOKED_pos));
-    float blur = (
-        get_luma(HOOKED_texOff(vec2(-D,-D))) + get_luma(HOOKED_texOff(vec2( 0.0,-D))) + get_luma(HOOKED_texOff(vec2(D,-D))) +
-        get_luma(HOOKED_texOff(vec2(-D, 0.0))) + c                                      + get_luma(HOOKED_texOff(vec2(D, 0.0))) +
-        get_luma(HOOKED_texOff(vec2(-D, D))) + get_luma(HOOKED_texOff(vec2( 0.0, D))) + get_luma(HOOKED_texOff(vec2(D, D)))
-    ) / 9.0;
-    return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
-}
-
-//!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
-//!HOOK MAIN
-//!BIND NATIVE_RES
-//!BIND EASUTEX
-//!SAVE LINELUMA_SHARP
-//!WIDTH EASUTEX.w
-//!HEIGHT EASUTEX.h
-//!COMPONENTS 1
-//!WHEN OUTPUT.w MAIN.w >
-
-#define D (0.75 * EASUTEX_size.y / NATIVE_RES_size.y)
+#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define LUMA_SHARP_AMOUNT 1.5
 
 vec4 hook() {
-    float c = EASUTEX_tex(EASUTEX_pos).x;
+    float c = HOOKED_tex(HOOKED_pos).x;
     float blur = (
-        EASUTEX_texOff(vec2(-D,-D)).x + EASUTEX_texOff(vec2( 0.0,-D)).x + EASUTEX_texOff(vec2(D,-D)).x +
-        EASUTEX_texOff(vec2(-D, 0.0)).x + c                               + EASUTEX_texOff(vec2(D, 0.0)).x +
-        EASUTEX_texOff(vec2(-D, D)).x + EASUTEX_texOff(vec2( 0.0, D)).x + EASUTEX_texOff(vec2(D, D)).x
+        HOOKED_texOff(vec2(-D,-D)).x + HOOKED_texOff(vec2( 0.0,-D)).x + HOOKED_texOff(vec2(D,-D)).x +
+        HOOKED_texOff(vec2(-D, 0.0)).x + c + HOOKED_texOff(vec2(D, 0.0)).x +
+        HOOKED_texOff(vec2(-D, D)).x + HOOKED_texOff(vec2( 0.0, D)).x + HOOKED_texOff(vec2(D, D)).x
     ) / 9.0;
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
@@ -243,7 +505,7 @@ vec4 hook() {
 //!BIND LINESOBEL
 //!BIND LINECONF
 
-#define THIN_STRENGTH         0.06 // Base displacement step in output pixels per iteration (0.0 to ~0.2)
+#define THIN_STRENGTH         0.14 // Base displacement step in output pixels per iteration (0.0 to ~0.2)
 #define ITERATIONS            3    // Number of coordinate warping passes to thin lines (int 0 to ~10)
 #define MIN_EDGE_STRENGTH     0.01 // Gradient magnitude threshold to abort warping early (0.0 to 1.0)
 #define CONF_LOW              0.05 // Minimum line confidence required to trigger any warping (0.0 to 1.0)
@@ -328,9 +590,9 @@ vec4 hook() {
 //!BIND LINECONF
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DEALIAS_STRENGTH 1.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
+#define DEALIAS_STRENGTH 0 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
 #define DEBLUR_AMOUNT    0.5  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
-#define CONF_LOW         0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
+#define CONF_LOW         0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
 #define CONF_HIGH        0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
@@ -365,12 +627,13 @@ vec4 hook() {
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
-
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DARKEN_STRENGTH 0.23 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
-#define DARKEN_MAX_FRAC 0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0); 0.25 means keeping at least 75% of original brightness
-#define CONF_LOW        0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
-#define CONF_HIGH       0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
+#define DARKEN_STRENGTH    0.56 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
+#define DARKEN_MAX_FRAC    0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0)
+#define DARKEN_LUMA_FLOOR  0.08 // Below this luma, full darkening is applied (canonical dark ink lines)
+#define DARKEN_LUMA_CEIL   0.72 // Above this luma, darkening is fully suppressed (coloured lines / highlights)
+#define CONF_LOW           0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
+#define CONF_HIGH          0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
 
@@ -400,7 +663,74 @@ vec4 hook() {
 
     vec4 c = HOOKED_tex(HOOKED_pos);
     float l = get_luma(c.rgb);
-    float delta = min(effect_mask * valley * DARKEN_STRENGTH * l, l * DARKEN_MAX_FRAC);
+
+    // Single gate: dark ink lines get full darkening, colored/bright lines get none
+	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+
+	// Suppress darkening if: luma is high OR saturation is high
+	float luma_gate    = 1.0 - smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
+	float sat_suppress = smoothstep(0.08, 0.25, sat);
+	float darken_gate  = luma_gate * (1.0 - sat_suppress);  // both must pass
+
+	float delta = min(effect_mask * valley * DARKEN_STRENGTH * l * darken_gate, l * DARKEN_MAX_FRAC);
+	
     c.rgb *= clamp((l - delta) / max(l, 0.001), 0.0, 1.0);
     return c;
+}
+
+//!DESC Anime4K-Ultra-Thin-AA-DB-ChromaDeblur
+//!HOOK MAIN
+//!BIND NATIVE_RES
+//!BIND HOOKED
+//!BIND PWSOBEL
+//!BIND LINECONF
+#define D                    (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
+#define CHROMA_DEBLUR_AMOUNT  1.2   // Can now be aggressive without halos
+#define DARKEN_LUMA_FLOOR     0.08
+#define DARKEN_LUMA_CEIL      0.72
+#define CONF_LOW              0.02
+#define CONF_HIGH             0.18
+#define TANGENT_TAPS          2     // ±N taps along tangent (1 = 3-tap, 2 = 5-tap)
+#define TANGENT_SIGMA         1.0   // Gaussian sigma for tangent weights
+
+float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
+float gaussian(float x, float s) { return exp(-0.5 * (x/s) * (x/s)); }
+
+vec4 hook() {
+    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
+    if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
+
+    vec4 c = HOOKED_tex(HOOKED_pos);
+    float l = get_luma(c.rgb);
+
+    float color_gate = smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
+    if (color_gate < 0.001) return c;
+
+    // Edge-directed tangent from PWSOBEL
+    vec2 sd  = PWSOBEL_tex(PWSOBEL_pos).xy;
+    float mag = length(sd);
+    vec2 tang = (mag > 0.01) ? vec2(-sd.y, sd.x) / mag : vec2(1.0, 0.0);
+
+    // Gaussian-weighted blur ALONG tangent only — never across the edge
+    vec4 blur = vec4(0.0);
+    float wsum = 0.0;
+    for (int i = -TANGENT_TAPS; i <= TANGENT_TAPS; i++) {
+        float fi = float(i);
+        float w = gaussian(fi, TANGENT_SIGMA);
+        blur += HOOKED_texOff(tang * fi * D) * w;
+        wsum += w;
+    }
+    blur /= wsum;
+
+    float strength = CHROMA_DEBLUR_AMOUNT * effect_mask * color_gate;
+    vec3 sharpened = c.rgb + (c.rgb - blur.rgb) * strength;
+
+    // Optional: clamp to tangent neighborhood to prevent any residual overshoot
+    vec4 t1 = HOOKED_texOff( tang * D);
+    vec4 t2 = HOOKED_texOff(-tang * D);
+    vec3 mn = min(min(t1.rgb, t2.rgb), c.rgb);
+    vec3 mx = max(max(t1.rgb, t2.rgb), c.rgb);
+    sharpened = clamp(sharpened, mn, mx);
+
+    return clamp(vec4(sharpened, c.a), 0.0, 1.0);
 }
