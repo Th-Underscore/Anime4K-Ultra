@@ -16,7 +16,7 @@ $ShaderComponents = @{
     )
     "Anime4K-Ultra_Smooth_Deblur.glsl" = @(
         "src/Save-Native.glsl",
-        "src/Anime4K_Upscale_Original_x2.glsl",
+        "src/Anime4K_Upscale_Deblur_DoG_x2.glsl",
         "src/Anime4K_Thin_AA_Smooth_Deblur.glsl"
     )
 }
