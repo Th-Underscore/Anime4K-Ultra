@@ -213,9 +213,9 @@ vec4 hook() {
 vec4 hook() {
     float c = HOOKED_tex(HOOKED_pos).x;
     float blur = (
-        HOOKED_texOff(vec2(-D,-D)).x + HOOKED_texOff(vec2( 0.0,-D)).x + HOOKED_texOff(vec2(D,-D)).x +
+        HOOKED_texOff(vec2(-D,-D)).x + HOOKED_texOff(vec2(0.0,-D)).x + HOOKED_texOff(vec2(D,-D)).x +
         HOOKED_texOff(vec2(-D, 0.0)).x + c + HOOKED_texOff(vec2(D, 0.0)).x +
-        HOOKED_texOff(vec2(-D, D)).x + HOOKED_texOff(vec2( 0.0, D)).x + HOOKED_texOff(vec2(D, D)).x
+        HOOKED_texOff(vec2(-D, D)).x + HOOKED_texOff(vec2(0.0, D)).x + HOOKED_texOff(vec2(D, D)).x
     ) / 9.0;
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
@@ -636,7 +636,7 @@ vec4 hook() {
     vec4 c = HOOKED_tex(HOOKED_pos);
     float l = get_luma(c.rgb);
 
-    // color_gate is the inverse of Darken's luma_gate: restricts sharpening to coloured/bright pixels, avoiding double-processing of dark ink lines
+    // Inverse of Darken's luma_gate: restricts sharpening to coloured/bright pixels, avoiding double-processing of dark ink lines
     float color_gate = smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
     if (color_gate < 0.001) return c;
 

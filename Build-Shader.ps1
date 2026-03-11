@@ -14,9 +14,14 @@ $ShaderComponents = @{
         "src/FSR-Ani.glsl",
         "src/Anime4K_Thin_AA_Soft_Deblur.glsl"
     )
-    "Anime4K-Ultra_Smooth_Deblur.glsl" = @(
+    "Anime4K-Ultra_DoG_Deblur.glsl" = @(
         "src/Save-Native.glsl",
         "src/Anime4K_Upscale_Deblur_DoG_x2.glsl",
+        "src/Anime4K_Thin_AA_Smooth_Deblur.glsl"
+    )
+    "Anime4K-Ultra_L_Deblur.glsl" = @(
+        "src/Save-Native.glsl",
+        "src/Anime4K_Upscale_CNN_x2_L.glsl",
         "src/Anime4K_Thin_AA_Smooth_Deblur.glsl"
     )
 }
