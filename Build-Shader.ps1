@@ -4,25 +4,30 @@ $ShaderComponents = @{
         "src/FSR-Ani.glsl",
         "src/Anime4K_Thin_AA.glsl"
     )
-    "Anime4K-Ultra_Deblur.glsl" = @(
+    "Anime4K-Ultra_Db.glsl" = @(
         "src/Save-Native.glsl",
         "src/FSR-Ani.glsl",
         "src/Anime4K_Thin_AA_Deblur.glsl"
     )
-    "Anime4K-Ultra_Soft_Deblur.glsl" = @(
+    "Anime4K-Ultra_SDb.glsl" = @(
         "src/Save-Native.glsl",
         "src/FSR-Ani.glsl",
-        "src/Anime4K_Thin_AA_Soft_Deblur.glsl"
+        "src/Anime4K_Thin_AA_Soft-Deblur.glsl"
     )
-    "Anime4K-Ultra_DoG_Deblur.glsl" = @(
-        "src/Save-Native.glsl",
-        "src/Anime4K_Upscale_Deblur_DoG_x2.glsl",
-        "src/Anime4K_Thin_AA_Smooth_Deblur.glsl"
-    )
-    "Anime4K-Ultra_L_Deblur.glsl" = @(
+    "Anime4K-Ultra_SmDbH.glsl" = @(
         "src/Save-Native.glsl",
         "src/Anime4K_Upscale_CNN_x2_L.glsl",
-        "src/Anime4K_Thin_AA_Smooth_Deblur.glsl"
+        "src/Anime4K_Thin_AA_Smoothen-Deblur-Heavy.glsl"
+    )
+    "Anime4K-Ultra_SmDbH_Sharp.glsl" = @(
+        "src/Save-Native.glsl",
+        "src/FSR-Ani.glsl",
+        "src/Anime4K_Thin_AA_Smoothen-Deblur-Heavy.glsl"
+    )
+    "Anime4K-Ultra_SmDbL.glsl" = @(
+        "src/Save-Native.glsl",
+        "src/Anime4K_Upscale_CNN_x2_L.glsl",
+        "src/Anime4K_Thin_AA_Smoothen-Deblur-Light.glsl"
     )
 }
 

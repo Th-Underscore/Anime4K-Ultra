@@ -47,9 +47,9 @@ float get_luma(vec4 rgba) { return dot(vec3(0.299, 0.587, 0.114), rgba.rgb); }
 vec4 hook() {
     float c = get_luma(HOOKED_tex(HOOKED_pos));
     float blur = (
-        get_luma(HOOKED_texOff(vec2(-D,-D))) + get_luma(HOOKED_texOff(vec2( 0.0,-D))) + get_luma(HOOKED_texOff(vec2(D,-D))) +
-        get_luma(HOOKED_texOff(vec2(-D, 0.0))) + c                                      + get_luma(HOOKED_texOff(vec2(D, 0.0))) +
-        get_luma(HOOKED_texOff(vec2(-D, D))) + get_luma(HOOKED_texOff(vec2( 0.0, D))) + get_luma(HOOKED_texOff(vec2(D, D)))
+        get_luma(HOOKED_texOff(vec2(-D,-D))) + get_luma(HOOKED_texOff(vec2(0.0,-D))) + get_luma(HOOKED_texOff(vec2(D,-D))) +
+        get_luma(HOOKED_texOff(vec2(-D, 0.0))) + c + get_luma(HOOKED_texOff(vec2(D, 0.0))) +
+        get_luma(HOOKED_texOff(vec2(-D, D))) + get_luma(HOOKED_texOff(vec2(0.0, D))) + get_luma(HOOKED_texOff(vec2(D, D)))
     ) / 9.0;
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
@@ -70,9 +70,9 @@ vec4 hook() {
 vec4 hook() {
     float c = EASUTEX_tex(EASUTEX_pos).x;
     float blur = (
-        EASUTEX_texOff(vec2(-D,-D)).x + EASUTEX_texOff(vec2( 0.0,-D)).x + EASUTEX_texOff(vec2(D,-D)).x +
-        EASUTEX_texOff(vec2(-D, 0.0)).x + c                               + EASUTEX_texOff(vec2(D, 0.0)).x +
-        EASUTEX_texOff(vec2(-D, D)).x + EASUTEX_texOff(vec2( 0.0, D)).x + EASUTEX_texOff(vec2(D, D)).x
+        EASUTEX_texOff(vec2(-D,-D)).x + EASUTEX_texOff(vec2(0.0,-D)).x + EASUTEX_texOff(vec2(D,-D)).x +
+        EASUTEX_texOff(vec2(-D, 0.0)).x + c + EASUTEX_texOff(vec2(D, 0.0)).x +
+        EASUTEX_texOff(vec2(-D, D)).x + EASUTEX_texOff(vec2(0.0, D)).x + EASUTEX_texOff(vec2(D, D)).x
     ) / 9.0;
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
@@ -320,7 +320,7 @@ vec4 hook() {
     return vec4(gx, gy, sqrt(gx * gx + gy * gy), 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Dealias-Deblur
+//!DESC Anime4K-Ultra-Thin-AA-DB-Dealias-USM
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -329,7 +329,7 @@ vec4 hook() {
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DEALIAS_STRENGTH 1.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
-#define DEBLUR_AMOUNT    0.5  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
+#define USM_AMOUNT       0.5  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
 #define CONF_LOW         0.05 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
 #define CONF_HIGH        0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
@@ -356,7 +356,7 @@ vec4 hook() {
         HOOKED_texOff(vec2(-D, 0.0)) + c + HOOKED_texOff(vec2(D, 0.0)) +
         HOOKED_texOff(vec2(-D, D)) + HOOKED_texOff(vec2(0.0, D)) + HOOKED_texOff(vec2(D, D))
     ) / 9.0;
-    return clamp(c_da + (c - blur) * DEBLUR_AMOUNT * effect_mask, 0.0, 1.0);
+    return clamp(c_da + (c - blur) * USM_AMOUNT * effect_mask, 0.0, 1.0);
 }
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Darken

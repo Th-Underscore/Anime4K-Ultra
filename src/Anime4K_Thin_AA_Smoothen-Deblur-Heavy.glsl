@@ -1,34 +1,19 @@
-// =============================================================================
-// Shader: Anime4K-Ultra
-// Compiled by: Th-Underscore (2026)
-//
-// FEATURES:
-// - Combines FSR v1.0.2 and Custom Anime4K_Thin w/ De-Aliasing + Deblur
-// - Designed specifically to preserve film grain and fine textures
-// - Significantly lighter performance than Anime4K (Fast)
-//
-// CREDITS:
-//  - bloc97, for creating Anime4K
-//  - agilyd, for porting FSR to GLSL
-// =============================================================================
-// THIRD-PARTY LICENSES:
-//
-// 1. Anime4K (MIT) - Copyright (c) 2019-2021 bloc97
-// 2. FidelityFX FSR (MIT) - Copyright (c) 2021 Advanced Micro Devices, Inc.
-// 3. Anime4K-Ultra (MIT) - Copyright (c) 2026 Th-Underscore
-// =============================================================================
 // MIT License
-//
+
+// Copyright (c) 2019-2021 bloc97
+// Copyright (c) 2026 Th-Underscore
+// All rights reserved.
+
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -36,167 +21,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-// =============================================================================
-
-
-// =============================================================================
-// COMPONENT: Save-Native.glsl
-// =============================================================================
-
-//!DESC Save-Native-Resolution
-//!HOOK LUMA
-//!BIND HOOKED
-//!SAVE NATIVE_RES
-//!COMPONENTS 1
-vec4 hook() {
-    return HOOKED_tex(HOOKED_pos);
-}
-
-
-// =============================================================================
-// COMPONENT: Anime4K_Upscale_Deblur_DoG_x2.glsl
-// =============================================================================
-
-//!DESC Anime4K-v3.2-Upscale-Deblur-DoG-x2-Luma
-//!HOOK MAIN
-//!BIND HOOKED
-//!SAVE LINELUMA
-//!COMPONENTS 1
-
-float get_luma(vec4 rgba) {
-	return dot(vec4(0.299, 0.587, 0.114, 0.0), rgba);
-}
-
-vec4 hook() {
-    return vec4(get_luma(HOOKED_tex(HOOKED_pos)), 0.0, 0.0, 0.0);
-}
-
-//!DESC Anime4K-v3.2-Upscale-Deblur-DoG-x2-Kernel-X
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
-//!HOOK MAIN
-//!BIND HOOKED
-//!BIND LINELUMA
-//!SAVE GAUSS_X2
-//!COMPONENTS 3
-
-#define L_tex LINELUMA_tex
-
-float max3v(float a, float b, float c) {
-	return max(max(a, b), c);
-}
-float min3v(float a, float b, float c) {
-	return min(min(a, b), c);
-}
-
-vec2 minmax3(vec2 pos, vec2 d) {
-	float a = L_tex(pos - d).x;
-	float b = L_tex(pos).x;
-	float c = L_tex(pos + d).x;
-	
-	return vec2(min3v(a, b, c), max3v(a, b, c));
-}
-
-float lumGaussian7(vec2 pos, vec2 d) {
-	float g = (L_tex(pos - (d + d)).x + L_tex(pos + (d + d)).x) * 0.06136;
-	g = g + (L_tex(pos - d).x + L_tex(pos + d).x) * 0.24477;
-	g = g + (L_tex(pos).x) * 0.38774;
-	
-	return g;
-}
-
-
-vec4 hook() {
-    return vec4(lumGaussian7(HOOKED_pos, vec2(HOOKED_pt.x, 0)), minmax3(HOOKED_pos, vec2(HOOKED_pt.x, 0)), 0);
-}
-
-
-//!DESC Anime4K-v3.2-Upscale-Deblur-DoG-x2-Kernel-Y
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
-//!HOOK MAIN
-//!BIND HOOKED
-//!BIND GAUSS_X2
-//!SAVE GAUSS_X2
-//!COMPONENTS 3
-
-#define L_tex GAUSS_X2_tex
-
-float max3v(float a, float b, float c) {
-	return max(max(a, b), c);
-}
-float min3v(float a, float b, float c) {
-	return min(min(a, b), c);
-}
-
-vec2 minmax3(vec2 pos, vec2 d) {
-	float a0 = L_tex(pos - d).y;
-	float b0 = L_tex(pos).y;
-	float c0 = L_tex(pos + d).y;
-	
-	float a1 = L_tex(pos - d).z;
-	float b1 = L_tex(pos).z;
-	float c1 = L_tex(pos + d).z;
-	
-	return vec2(min3v(a0, b0, c0), max3v(a1, b1, c1));
-}
-
-float lumGaussian7(vec2 pos, vec2 d) {
-	float g = (L_tex(pos - (d + d)).x + L_tex(pos + (d + d)).x) * 0.06136;
-	g = g + (L_tex(pos - d).x + L_tex(pos + d).x) * 0.24477;
-	g = g + (L_tex(pos).x) * 0.38774;
-	
-	return g;
-}
-
-
-vec4 hook() {
-    return vec4(lumGaussian7(HOOKED_pos, vec2(0, HOOKED_pt.y)), minmax3(HOOKED_pos, vec2(0, HOOKED_pt.y)), 0);
-}
-
-//!DESC Anime4K-v3.2-Upscale-Deblur-DoG-x2-Apply
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
-//!HOOK MAIN
-//!BIND HOOKED
-//!BIND LINELUMA
-//!BIND GAUSS_X2
-//!WIDTH MAIN.w 2 *
-//!HEIGHT MAIN.h 2 *
-
-#define STRENGTH 0.6 //De-blur proportional strength, higher is sharper. However, it is better to tweak BLUR_CURVE instead to avoid ringing.
-#define BLUR_CURVE 0.6 //De-blur power curve, lower is sharper. Good values are between 0.3 - 1. Values greater than 1 softens the image;
-#define BLUR_THRESHOLD 0.1 //Value where curve kicks in, used to not de-blur already sharp edges. Only de-blur values that fall below this threshold.
-#define NOISE_THRESHOLD 0.001 //Value where curve stops, used to not sharpen noise. Only de-blur values that fall above this threshold.
-
-#define L_tex LINELUMA_tex
-
-vec4 hook() {
-	float c = (L_tex(HOOKED_pos).x - GAUSS_X2_tex(HOOKED_pos).x) * STRENGTH;
-	
-	float t_range = BLUR_THRESHOLD - NOISE_THRESHOLD;
-	
-	float c_t = abs(c);
-	if (c_t > NOISE_THRESHOLD && c_t < BLUR_THRESHOLD) {
-		c_t = (c_t - NOISE_THRESHOLD) / t_range;
-		c_t = pow(c_t, BLUR_CURVE);
-		c_t = c_t * t_range + NOISE_THRESHOLD;
-		c_t = c_t * sign(c);
-	} else {
-		c_t = c;
-	}
-	
-	float cc = clamp(c_t + L_tex(HOOKED_pos).x, GAUSS_X2_tex(HOOKED_pos).y, GAUSS_X2_tex(HOOKED_pos).z) - L_tex(HOOKED_pos).x;
-	
-	//This trick is only possible if the inverse Y->RGB matrix has 1 for every row... (which is the case for BT.709)
-	//Otherwise we would need to convert RGB to YUV, modify Y then convert back to RGB.
-	return HOOKED_tex(HOOKED_pos) + cc;
-}
-
-
-
-
-
-// =============================================================================
-// COMPONENT: Anime4K_Thin_AA_Smooth_Deblur.glsl
-// =============================================================================
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
 //!HOOK MAIN
@@ -213,9 +37,9 @@ vec4 hook() {
 vec4 hook() {
     float c = HOOKED_tex(HOOKED_pos).x;
     float blur = (
-        HOOKED_texOff(vec2(-D,-D)).x + HOOKED_texOff(vec2(0.0,-D)).x + HOOKED_texOff(vec2(D,-D)).x +
+        HOOKED_texOff(vec2(-D,-D)).x + HOOKED_texOff(vec2( 0.0,-D)).x + HOOKED_texOff(vec2(D,-D)).x +
         HOOKED_texOff(vec2(-D, 0.0)).x + c + HOOKED_texOff(vec2(D, 0.0)).x +
-        HOOKED_texOff(vec2(-D, D)).x + HOOKED_texOff(vec2(0.0, D)).x + HOOKED_texOff(vec2(D, D)).x
+        HOOKED_texOff(vec2(-D, D)).x + HOOKED_texOff(vec2( 0.0, D)).x + HOOKED_texOff(vec2(D, D)).x
     ) / 9.0;
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
@@ -510,11 +334,14 @@ vec4 hook() {
 //!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND PWSOBEL
+//!BIND LINESOBEL
 //!BIND LINECONF
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DEALIAS_STRENGTH 0.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
-#define DEBLUR_AMOUNT    0.5  // Unsharp mask strength specifically over dealiased lines (0.0 to ~2.0)
+#define DEBLUR_PUSH      0.70 // Strength of luma push toward the detected edge extreme (0.0 to 1.0)
+#define DEBLUR_TAPS      3    // Samples along edge normal for min/max luma search (int 1 to ~5)
+#define DEBLUR_EDGE_BAND 0.06 // Smoothstep half-width for edge-side classification (0.0 to ~0.2)
 #define CONF_LOW         0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
 #define CONF_HIGH        0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
@@ -524,27 +351,41 @@ vec4 hook() {
     float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
-    vec4 c = HOOKED_tex(HOOKED_pos);
+    vec2 wpos = HOOKED_pos;
+
+    vec4 c = HOOKED_tex(wpos);
     vec2 sd = PWSOBEL_tex(PWSOBEL_pos).xy;
     float mag = length(sd);
-    vec2 tang = (mag > 0.01) ? vec2(-sd.y, sd.x) / mag : vec2(1.0, 0.0);
+    vec2 tang = (mag > 0.01) ? vec2(-sd.y,  sd.x) / mag : vec2(1.0, 0.0); // ⊥ to gradient = along line
+    vec2 norm = (mag > 0.01) ? sd / mag : vec2(0.0, 1.0); // ∥ to gradient = across line, pointing toward bright side
 
-    // Bilateral average of two tangent taps. The high luma-proximity decay (x20) makes weights collapse to ~0 across even modest luma differences, so colour cannot bleed across the edge while the staircase along its length is smoothed:
-    //   w = exp(-|luma(tap) - luma(centre)| · 20)
-    vec4 t1 = HOOKED_tex(HOOKED_pos + tang * HOOKED_pt * D);
-    vec4 t2 = HOOKED_tex(HOOKED_pos - tang * HOOKED_pt * D);
+    // Blends neighbours along the line. Bilateral weights suppress mixing across
+    // luma discontinuities, keeping the blend within the same side of the edge
+    vec4 t1 = HOOKED_tex(wpos + tang * HOOKED_pt * D);
+    vec4 t2 = HOOKED_tex(wpos - tang * HOOKED_pt * D);
     float lc = get_luma(c.rgb);
-    float w1 = exp(-abs(get_luma(t1.rgb) - lc) * 20.0);
+    float w1 = exp(-abs(get_luma(t1.rgb) - lc) * 20.0); // 20.0: bilateral sensitivity; large luma diff → weight ≈ 0
     float w2 = exp(-abs(get_luma(t2.rgb) - lc) * 20.0);
-    vec4 c_da = mix(c, (c + t1 * w1 + t2 * w2) / (1.0 + w1 + w2), DEALIAS_STRENGTH * effect_mask);
+    vec4 c_da = mix(c, (c + t1 * w1 + t2 * w2) / (1.0 + w1 + w2),
+                     DEALIAS_STRENGTH * effect_mask);
 
-    // Unsharp mask applied to the dealiased result, gated by effect_mask so flat regions receive no sharpening
-    vec4 blur = (
-        HOOKED_texOff(vec2(-D,-D)) + HOOKED_texOff(vec2(0.0,-D)) + HOOKED_texOff(vec2(D,-D)) +
-        HOOKED_texOff(vec2(-D, 0.0)) + c + HOOKED_texOff(vec2(D, 0.0)) +
-        HOOKED_texOff(vec2(-D, D)) + HOOKED_texOff(vec2(0.0, D)) + HOOKED_texOff(vec2(D, D))
-    ) / 9.0;
-    return clamp(c_da + (c - blur) * DEBLUR_AMOUNT * effect_mask, 0.0, 1.0);
+    // Scans DEBLUR_TAPS steps along ±norm to find the luma range bracketing the
+    // edge. Since norm points toward the bright side:
+    //   -norm taps → ink/dark side  → tracked by darkest
+    //   +norm taps → bg/bright side → tracked by brightest
+    float darkest = lc, brightest = lc;
+    for (int i = 1; i <= DEBLUR_TAPS; i++) {
+        float fi = float(i);
+        darkest   = min(darkest,   get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
+        brightest = max(brightest, get_luma(HOOKED_tex(wpos + norm * HOOKED_pt * D * fi).rgb));
+    }
+    float mid = (darkest + brightest) * 0.5;
+    float side = smoothstep(mid - DEBLUR_EDGE_BAND, mid + DEBLUR_EDGE_BAND, lc);
+    float target_luma = mix(darkest, brightest, side);
+    float luma_scale = mix(lc, target_luma, DEBLUR_PUSH * effect_mask) / max(lc, 0.001);
+    c_da.rgb = clamp(c_da.rgb * luma_scale, 0.0, 1.0);
+
+    return clamp(c_da, 0.0, 1.0);
 }
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Darken
@@ -555,30 +396,46 @@ vec4 hook() {
 //!BIND LINECONF
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DARKEN_STRENGTH   0.30 // Base multiplier for line darkening via local luma valleys (0.0 to ~1.0)
-#define DARKEN_MAX_FRAC   0.25 // Max fraction of luma to SUBTRACT (0.0 to 1.0)
-#define DARKEN_LUMA_FLOOR 0.08 // Below this luma, full darkening is applied (canonical dark ink lines)
-#define DARKEN_LUMA_CEIL  0.82 // Above this luma, darkening is fully suppressed (coloured lines / highlights)
-#define CONF_LOW          0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
-#define CONF_HIGH         0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
+#define DARKEN_STRENGTH         0.60 // Overall darkening scale (0.0 to ~1.0)
+#define DARKEN_MAX_FRAC         0.35 // Cap for achromatic (black/gray) ink lines
+#define DARKEN_MAX_FRAC_HUE     0.28 // Reduced cap for hue-matched coloured lines (e.g. red lines in red hair)
+#define DARKEN_LUMA_FLOOR       0.08 // Luma below which darkening fades out (0.0 to 1.0)
+#define DARKEN_LUMA_CEIL        0.88 // Luma above which darkening is fully suppressed (0.0 to 1.0)
+#define CONF_LOW                0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
+#define CONF_HIGH               0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
+#define VALLEY_BG_NEAR          1.0  // Near background tap distance in pixels
+#define VALLEY_BG_FAR           2.0  // Far background tap distance in pixels
+#define VALLEY_WIDTH_GATE       0.06
+// Minimum dot product between a tangent tap's gradient direction and the center
+// gradient direction for that tap to be allowed to elevate the valley score.
+// ~cos(50°) ≈ 0.64. Raise to be stricter about "same line"; lower to tolerate
+// more curve/corner variation along the tangent.
+#define TANGENT_CONSISTENCY_MIN 0.64
+#define HUE_MATCH_SAT_MIN       0.04 // Min chroma vector length to attempt hue comparison (0.0 to ~0.2)
+#define HUE_MATCH_DOT_THRESHOLD 0.70 // Chroma dot product above which line is considered hue-matched to bg (~cos(45°))
 
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
 
+// Returns a [0,1] score indicating how much darker p is than its surroundings on both sides
+// High score = confident ink valley; low score = flat region or one-sided edge (shadow, gradient)
 float valley_at(vec2 p) {
     vec2 gxy = PWSOBEL_tex(p).xy;
     float mag = length(gxy);
     vec2 norm = (mag > 0.01) ? (gxy / mag) : vec2(1.0, 0.0);
     float lc = get_luma(HOOKED_tex(p).rgb);
-    // Check two steps outward in each direction to handle lines thicker than one pixel, then take the brighter of the two as the background reference:
-    //   lpos = max(luma at +D, luma at +2D)  along ∇M
-    //   lneg = max(luma at -D, luma at -2D)  along ∇M
-    float lpos = max(get_luma(HOOKED_tex(p + norm * HOOKED_pt * D).rgb),
-                     get_luma(HOOKED_tex(p + norm * HOOKED_pt * (D * 2.0)).rgb));
-    float lneg = max(get_luma(HOOKED_tex(p - norm * HOOKED_pt * D).rgb),
-                     get_luma(HOOKED_tex(p - norm * HOOKED_pt * (D * 2.0)).rgb));
-    // x8 scaling + normalisation:
-    // score -> 1.0 when centre is a clear local minimum (ink line), -> 0 on shallow gradients (shading, textures)
-    return clamp((min(lpos, lneg) - lc) * 8.0 / max(max(lpos, lneg), 0.1), 0.0, 1.0);
+
+    float lpos_near = get_luma(HOOKED_tex(p + norm * HOOKED_pt * D * VALLEY_BG_NEAR).rgb);
+    float lneg_near = get_luma(HOOKED_tex(p - norm * HOOKED_pt * D * VALLEY_BG_NEAR).rgb);
+    // max(near, far) so a line adjacent to a darker region still detects the brighter background further out
+    float lpos = max(lpos_near, get_luma(HOOKED_tex(p + norm * HOOKED_pt * D * VALLEY_BG_FAR).rgb));
+    float lneg = max(lneg_near, get_luma(HOOKED_tex(p - norm * HOOKED_pt * D * VALLEY_BG_FAR).rgb));
+
+    // How much darker is the center than the dimmer side, normalized by the brighter side
+    float raw_valley = clamp((min(lpos, lneg) - lc) * 8.0 / max(max(lpos, lneg), 0.1), 0.0, 1.0);
+    float near_bright = max(lpos_near, lneg_near);
+    float width_gate = smoothstep(lc, lc + VALLEY_WIDTH_GATE, near_bright);
+
+    return raw_valley * width_gate;
 }
 
 vec4 hook() {
@@ -587,84 +444,58 @@ vec4 hook() {
 
     vec2 gxy = PWSOBEL_tex(PWSOBEL_pos).xy;
     float mag = length(gxy);
-    vec2 tang = (mag > 0.01) ? vec2(-gxy.y, gxy.x) / mag : vec2(1.0, 0.0);
+    vec2 norm = (mag > 0.01) ?  gxy / mag                  : vec2(1.0, 0.0);
+    vec2 tang = (mag > 0.01) ?  vec2(-gxy.y, gxy.x) / mag  : vec2(1.0, 0.0);
 
-    // Max-pool valley score across three tangent positions so narrow lines that sit between output pixels still register
-    float valley = max(valley_at(HOOKED_pos),
-                   max(valley_at(HOOKED_pos + tang * HOOKED_pt * D),
-                       valley_at(HOOKED_pos - tang * HOOKED_pt * D)));
+    // Gradient-direction-consistent max pooling
+    float v0 = valley_at(HOOKED_pos);
+    vec2 p1 = HOOKED_pos + tang * HOOKED_pt * D;
+    vec2 p2 = HOOKED_pos - tang * HOOKED_pt * D;
+
+    vec2 g1 = PWSOBEL_tex(p1).xy;
+    vec2 g2 = PWSOBEL_tex(p2).xy;
+    float m1 = length(g1), m2 = length(g2);
+
+    // abs(dot) measures alignment between the tangent tap's gradient and the center normal
+    // High value = tap is on the same line; abs() handles opposite-sign gradients across the line
+    float c1 = (m1 > 0.01) ? abs(dot(g1 / m1, norm)) : 0.0;
+    float c2 = (m2 > 0.01) ? abs(dot(g2 / m2, norm)) : 0.0;
+    float gate1 = smoothstep(TANGENT_CONSISTENCY_MIN, 1.0, c1);
+    float gate2 = smoothstep(TANGENT_CONSISTENCY_MIN, 1.0, c2);
+
+    // Only allow tangent taps to raise the score if their gradient direction is consistent with the center (same line, not a crossing edge)
+    float valley = max(v0, max(valley_at(p1) * gate1, valley_at(p2) * gate2));
 
     vec4 c = HOOKED_tex(HOOKED_pos);
     float l = get_luma(c.rgb);
 
-    // Suppress darkening on saturated pixels (coloured lines / highlights)
-    // luma_gate and sat_suppress are multiplied so either condition alone can fully suppress the effect
-	float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-	float luma_gate = 1.0 - smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
-	float sat_suppress = smoothstep(0.08, 0.25, sat);
-	float darken_gate = luma_gate * (1.0 - sat_suppress);
+    // Picks the brighter background side to compare against the line's chroma
+    vec3 bg_pos = HOOKED_tex(HOOKED_pos + norm * HOOKED_pt * D * VALLEY_BG_FAR).rgb;
+    vec3 bg_neg = HOOKED_tex(HOOKED_pos - norm * HOOKED_pt * D * VALLEY_BG_FAR).rgb;
+    vec3 bg_rgb = (get_luma(bg_pos) >= get_luma(bg_neg)) ? bg_pos : bg_neg;
 
-	float delta = min(effect_mask * valley * DARKEN_STRENGTH * l * darken_gate, l * DARKEN_MAX_FRAC);
-    // Scale RGB uniformly so hue is preserved while luma drops by delta
-    c.rgb *= clamp((l - delta) / max(l, 0.001), 0.0, 1.0);
+    // Chroma vectors: colour minus its own grey (i.e. subtract luma component)
+    vec3 line_chroma = c.rgb  - vec3(l);
+    vec3 bg_chroma = bg_rgb - vec3(get_luma(bg_rgb));
+    float line_clen = length(line_chroma);
+    float bg_clen = length(bg_chroma);
+    // Dot product of unit chroma vectors: 1 = same hue, 0 = orthogonal, guarded by saturation floor
+    float hue_dot = (line_clen > HUE_MATCH_SAT_MIN && bg_clen > HUE_MATCH_SAT_MIN)
+                    ? clamp(dot(line_chroma / line_clen, bg_chroma / bg_clen), 0.0, 1.0)
+                    : 0.0;
+    float hue_match = smoothstep(HUE_MATCH_DOT_THRESHOLD, 1.0, hue_dot);
+
+    float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+    float is_saturated = smoothstep(0.08, 0.25, sat);
+    float luma_gate = 1.0 - smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
+    float sat_suppress = is_saturated * (1.0 - hue_match);
+    float darken_gate = luma_gate * (1.0 - sat_suppress);
+
+    float effective_max_frac = mix(DARKEN_MAX_FRAC, DARKEN_MAX_FRAC_HUE, hue_match * is_saturated);
+    // Multiplying by l makes the raw delta proportional to current brightness,
+    // preventing over-darkening of pixels that are already dim
+    float delta = min(effect_mask * valley * DARKEN_STRENGTH * l * darken_gate,
+                      l * effective_max_frac);
+    c.rgb *= clamp((l - delta) / max(l, 0.001), 0.0, 1.0); // uniform RGB scale preserves hue
     return c;
-}
-
-//!DESC Anime4K-Ultra-Thin-AA-DB-ChromaDeblur
-//!HOOK MAIN
-//!BIND NATIVE_RES
-//!BIND HOOKED
-//!BIND PWSOBEL
-//!BIND LINECONF
-
-#define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define CHROMA_DEBLUR_AMOUNT 2.2   // (0.0 to ~3.0)
-#define DARKEN_LUMA_FLOOR    0.08  // Match above
-#define DARKEN_LUMA_CEIL     0.72  // Match above
-#define CONF_LOW             0.02
-#define CONF_HIGH            0.18
-#define TANGENT_TAPS         2     // ±N taps along tangent (1 = 3-tap, 2 = 5-tap)
-#define TANGENT_SIGMA        1.0   // Gaussian sigma for tangent weights
-
-float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
-float gaussian(float x, float s) { return exp(-0.5 * (x/s) * (x/s)); }
-
-vec4 hook() {
-    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
-    if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
-
-    vec4 c = HOOKED_tex(HOOKED_pos);
-    float l = get_luma(c.rgb);
-
-    // Inverse of Darken's luma_gate: restricts sharpening to coloured/bright pixels, avoiding double-processing of dark ink lines
-    float color_gate = smoothstep(DARKEN_LUMA_FLOOR, DARKEN_LUMA_CEIL, l);
-    if (color_gate < 0.001) return c;
-
-    vec2 sd = PWSOBEL_tex(PWSOBEL_pos).xy;
-    float mag = length(sd);
-    vec2 tang = (mag > 0.01) ? vec2(-sd.y, sd.x) / mag : vec2(1.0, 0.0);
-
-    // Gaussian-weighted blur along the edge tangent, used as the low-frequency reference for the unsharp mask. Tangent-aligned blur avoids softening across the edge while still averaging chroma fringing along its length
-    vec4 blur = vec4(0.0);
-    float wsum = 0.0;
-    for (int i = -TANGENT_TAPS; i <= TANGENT_TAPS; i++) {
-        float fi = float(i);
-        float w = gaussian(fi, TANGENT_SIGMA);
-        blur += HOOKED_texOff(tang * fi * D) * w;
-        wsum += w;
-    }
-    blur /= wsum;
-
-    // sharpened = c + (c - tangent_blur) · strength
-    float strength = CHROMA_DEBLUR_AMOUNT * effect_mask * color_gate;
-    vec3 sharpened = c.rgb + (c.rgb - blur.rgb) * strength;
-
-    // Clamp to the min/max of the two nearest tangent neighbours to prevent residual overshoot from propagating into flat colour areas
-    vec4 t1 = HOOKED_texOff( tang * D);
-    vec4 t2 = HOOKED_texOff(-tang * D);
-    vec3 mn = min(min(t1.rgb, t2.rgb), c.rgb);
-    vec3 mx = max(max(t1.rgb, t2.rgb), c.rgb);
-    sharpened = clamp(sharpened, mn, mx);
-
-    return clamp(vec4(sharpened, c.a), 0.0, 1.0);
 }
