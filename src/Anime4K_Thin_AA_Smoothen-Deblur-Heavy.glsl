@@ -379,10 +379,21 @@ vec4 hook() {
         darkest   = min(darkest,   get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
         brightest = max(brightest, get_luma(HOOKED_tex(wpos + norm * HOOKED_pt * D * fi).rgb));
     }
+
     float mid = (darkest + brightest) * 0.5;
-    float side = smoothstep(mid - DEBLUR_EDGE_BAND, mid + DEBLUR_EDGE_BAND, lc);
+    float s_lo = max(mid - DEBLUR_EDGE_BAND, darkest);
+    float s_hi = min(mid + DEBLUR_EDGE_BAND, brightest);
+    float side = (s_hi > s_lo + 1e-5)
+        ? smoothstep(s_lo, s_hi, lc)
+        : (lc >= mid ? 1.0 : 0.0);
+
     float target_luma = mix(darkest, brightest, side);
-    float luma_scale = mix(lc, target_luma, DEBLUR_PUSH * effect_mask) / max(lc, 0.001);
+
+    float lc_da = get_luma(c_da.rgb);
+    float luma_scale = (lc_da > 0.001)
+        ? mix(lc_da, target_luma, DEBLUR_PUSH * effect_mask) / lc_da
+        : 1.0;
+
     c_da.rgb = clamp(c_da.rgb * luma_scale, 0.0, 1.0);
 
     return clamp(c_da, 0.0, 1.0);
