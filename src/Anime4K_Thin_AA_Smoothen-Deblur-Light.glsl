@@ -232,6 +232,39 @@ vec4 hook() {
     return vec4(csum / cwsum, 0.0, 0.0, 0.0);
 }
 
+//!DESC Anime4K-Ultra-Thin-AA-DB-Edge-Sharpness
+//!HOOK MAIN
+//!BIND NATIVE_RES
+//!BIND LINESOBEL
+//!SAVE EDGESHARP
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
+//!COMPONENTS 1
+
+#define NEAR_PX 4.0   // Inner sample distance (native px) (3.0 - 5.0); raise to tolerate wider AA/soft lines
+#define FAR_PX  8.0   // Outer sample distance (native px) (5.0 - 58.0); ~half worst-case blur width
+#define SHARP_LO 0.20 // far_mass below this → treat as sharp (0.05 - 0.30)
+#define SHARP_HI 0.70 // far_mass above this → treat as blurry (0.30 - 1.00)
+
+vec4 hook() {
+    vec3 sd = LINESOBEL_tex(LINESOBEL_pos).xyz;
+    float M0 = sd.z;
+
+    if (M0 < 0.002) return vec4(1.0, 0.0, 0.0, 0.0);
+
+    float mag = length(sd.xy);
+    vec2 norm = (mag > 0.001) ? sd.xy / mag : vec2(0.0, 1.0);
+
+    float Mn = LINESOBEL_tex(LINESOBEL_pos + norm * LINESOBEL_pt * NEAR_PX).z;
+    float Mp = LINESOBEL_tex(LINESOBEL_pos - norm * LINESOBEL_pt * NEAR_PX).z;
+    float Fn = LINESOBEL_tex(LINESOBEL_pos + norm * LINESOBEL_pt * FAR_PX).z;
+    float Fp = LINESOBEL_tex(LINESOBEL_pos - norm * LINESOBEL_pt * FAR_PX).z;
+
+    float far_mass = (Mn + Mp + Fn + Fp) / (4.0 * M0);
+    float sharpness = 1.0 - smoothstep(SHARP_LO, SHARP_HI, far_mass);
+    return vec4(sharpness, 0.0, 0.0, 0.0);
+}
+
 //!DESC Anime4K-Ultra-Thin-AA-DB-Warp
 //!HOOK MAIN
 //!BIND NATIVE_RES
@@ -336,68 +369,66 @@ vec4 hook() {
 //!BIND PWSOBEL
 //!BIND LINESOBEL
 //!BIND LINECONF
+//!BIND EDGESHARP
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
-#define DEALIAS_STRENGTH    0.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
-#define DEBLUR_PUSH         0.70 // Strength of luma push toward the detected edge extreme (0.0 to 1.0)
-#define DEBLUR_TAPS         3    // Samples along edge normal for min/max luma search (int 1 to ~5)
-#define DEBLUR_EDGE_BAND    0.06 // Smoothstep half-width for edge-side classification (0.0 to ~0.2)
-#define CONF_LOW            0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
-#define CONF_HIGH           0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
-#define DEBLUR_EDGE_STOP    0.15 // Per-step jump that halts the edge-tracked scan
-#define DEBLUR_INK_LUMA_MAX 0.25 //
+#define DEALIAS_STRENGTH 0.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
+#define DEBLUR_PUSH      0.70 // Strength of luma push toward the detected edge extreme (0.0 to 1.0)
+#define DEBLUR_TAPS      3    // Samples along edge normal for min/max luma search (int 1 to ~5)
+#define DEBLUR_EDGE_BAND 0.06 // Smoothstep half-width for edge-side classification (0.0 to ~0.2)
+#define CONF_LOW         0.02 // Lower bound of the effect mask's smoothstep transition (0.0 to 1.0)
+#define CONF_HIGH        0.18 // Upper bound of the effect mask's smoothstep transition (0.0 to 1.0; must be > CONF_LOW)
 
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
 
 vec4 hook() {
-    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
+    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x)
+                      * EDGESHARP_tex(EDGESHARP_pos).x;
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
     vec2 wpos = HOOKED_pos;
+
     vec4 c = HOOKED_tex(wpos);
     vec2 sd = PWSOBEL_tex(PWSOBEL_pos).xy;
     float mag = length(sd);
     vec2 tang = (mag > 0.01) ? vec2(-sd.y,  sd.x) / mag : vec2(1.0, 0.0); // ⊥ to gradient = along line
     vec2 norm = (mag > 0.01) ? sd / mag : vec2(0.0, 1.0); // ∥ to gradient = across line, pointing toward bright side
 
-    // Dealias: bilateral tangent blend (unchanged).
+    // Blends neighbours along the line. Bilateral weights suppress mixing across
+    // luma discontinuities, keeping the blend within the same side of the edge
     vec4 t1 = HOOKED_tex(wpos + tang * HOOKED_pt * D);
     vec4 t2 = HOOKED_tex(wpos - tang * HOOKED_pt * D);
     float lc = get_luma(c.rgb);
-    float w1 = exp(-abs(get_luma(t1.rgb) - lc) * 20.0);
+    float w1 = exp(-abs(get_luma(t1.rgb) - lc) * 20.0); // 20.0: bilateral sensitivity; large luma diff → weight ≈ 0
     float w2 = exp(-abs(get_luma(t2.rgb) - lc) * 20.0);
     vec4 c_da = mix(c, (c + t1 * w1 + t2 * w2) / (1.0 + w1 + w2),
-                    DEALIAS_STRENGTH * effect_mask);
+                     DEALIAS_STRENGTH * effect_mask);
 
-    float darkest = lc, bg_darkest = lc, brightest = lc;
-    float prev_neg = lc, prev_pos = lc;
-    bool found_ink = false;
+    // Scans DEBLUR_TAPS steps along ±norm to find the luma range bracketing the
+    // edge. Since norm points toward the bright side:
+    //   -norm taps → ink/dark side  → tracked by darkest
+    //   +norm taps → bg/bright side → tracked by brightest
+    float darkest = lc, brightest = lc;
     for (int i = 1; i <= DEBLUR_TAPS; i++) {
-        float fi    = float(i);
-        float s_neg = get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb);
-        float s_pos = get_luma(HOOKED_tex(wpos + norm * HOOKED_pt * D * fi).rgb);
-
-        if (s_neg < DEBLUR_INK_LUMA_MAX || s_pos < DEBLUR_INK_LUMA_MAX)
-            found_ink = true;
-
-        if (abs(s_neg - prev_neg) < DEBLUR_EDGE_STOP) {
-            darkest = min(darkest, s_neg);
-            if (s_neg >= DEBLUR_INK_LUMA_MAX)
-                bg_darkest = min(bg_darkest, s_neg);
-            prev_neg = s_neg;
-        }
-        if (abs(s_pos - prev_pos) < DEBLUR_EDGE_STOP) {
-            brightest = max(brightest, s_pos);
-            prev_pos  = s_pos;
-        }
+        float fi = float(i);
+        darkest   = min(darkest,   get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
+        brightest = max(brightest, get_luma(HOOKED_tex(wpos + norm * HOOKED_pt * D * fi).rgb));
     }
 
-    float ink_gate = found_ink ? 1.0 : 0.0;
+    float mid = (darkest + brightest) * 0.5;
+    float s_lo = max(mid - DEBLUR_EDGE_BAND, darkest);
+    float s_hi = min(mid + DEBLUR_EDGE_BAND, brightest);
+    float side = (s_hi > s_lo + 1e-5)
+        ? smoothstep(s_lo, s_hi, lc)
+        : (lc >= mid ? 1.0 : 0.0);
 
-    float mid = (bg_darkest + brightest) * 0.5;
-    float side = smoothstep(mid - DEBLUR_EDGE_BAND, mid + DEBLUR_EDGE_BAND, lc);
-    float target = mix(bg_darkest, brightest, side);
-    float luma_scale = mix(lc, target, DEBLUR_PUSH * effect_mask * ink_gate) / max(lc, 0.001);
+    float target_luma = mix(darkest, brightest, side);
+
+    float lc_da = get_luma(c_da.rgb);
+    float luma_scale = (lc_da > 0.001)
+        ? mix(lc_da, target_luma, DEBLUR_PUSH * effect_mask) / lc_da
+        : 1.0;
+
     c_da.rgb = clamp(c_da.rgb * luma_scale, 0.0, 1.0);
 
     return clamp(c_da, 0.0, 1.0);
@@ -409,10 +440,11 @@ vec4 hook() {
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
+//!BIND EDGESHARP
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DARKEN_STRENGTH         0.60 // Overall darkening scale (0.0 to ~1.0)
-#define DARKEN_MAX_FRAC         0.29 // Cap for achromatic (black/gray) ink lines
+#define DARKEN_MAX_FRAC         0.35 // Cap for achromatic (black/gray) ink lines
 #define DARKEN_MAX_FRAC_HUE     0.28 // Reduced cap for hue-matched coloured lines (e.g. red lines in red hair)
 #define DARKEN_LUMA_FLOOR       0.08 // Luma below which darkening fades out (0.0 to 1.0)
 #define DARKEN_LUMA_CEIL        0.88 // Luma above which darkening is fully suppressed (0.0 to 1.0)
@@ -455,6 +487,7 @@ float valley_at(vec2 p) {
 
 vec4 hook() {
     float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
+                    //   * EDGESHARP_tex(EDGESHARP_pos).x;
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
     vec2 gxy = PWSOBEL_tex(PWSOBEL_pos).xy;
