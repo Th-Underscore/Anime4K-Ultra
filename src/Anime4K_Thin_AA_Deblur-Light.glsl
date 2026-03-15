@@ -22,7 +22,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Luma-Sharp
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -44,7 +44,7 @@ vec4 hook() {
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Sobel-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Sobel-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINELUMA_SHARP
@@ -65,7 +65,7 @@ vec4 hook() {
     return vec4(-l + r, l + c + c + r, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Sobel-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Sobel-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -97,7 +97,7 @@ vec4 hook() {
     return vec4(pow(sqrt(gx * gx + gy * gy), 0.7));
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Gaussian-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Gaussian-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -123,7 +123,7 @@ vec4 hook() {
     return vec4(g / gn, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Gaussian-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Gaussian-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -148,7 +148,7 @@ vec4 hook() {
     return vec4(g / gn, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Kernel-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Kernel-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -171,7 +171,7 @@ vec4 hook() {
     return vec4(-l + r, l + c + c + r, c, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Kernel-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Kernel-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -196,7 +196,7 @@ vec4 hook() {
     return vec4((tx + cx + cx + bx) / 8.0, (-ty + by) / 8.0, mask, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Line-Confidence
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Line-Confidence
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -232,7 +232,7 @@ vec4 hook() {
     return vec4(csum / cwsum, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Edge-Sharpness
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Edge-Sharpness
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -265,7 +265,7 @@ vec4 hook() {
     return vec4(sharpness, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Warp
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Warp
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -315,7 +315,7 @@ vec4 hook() {
     return HOOKED_tex(HOOKED_pos + offset);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-PW-Sobel-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-PW-Sobel-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -337,7 +337,7 @@ vec4 hook() {
     return vec4(-l + r, l + c + c + r, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-PW-Sobel-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-PW-Sobel-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -362,7 +362,7 @@ vec4 hook() {
     return vec4(gx, gy, sqrt(gx * gx + gy * gy), 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Dealias-Deblur
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Dealias-Deblur
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -411,7 +411,7 @@ vec4 hook() {
     float darkest = lc, brightest = lc;
     for (int i = 1; i <= DEBLUR_TAPS; i++) {
         float fi = float(i);
-        darkest   = min(darkest,   get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
+        darkest = min(darkest, get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
         brightest = max(brightest, get_luma(HOOKED_tex(wpos + norm * HOOKED_pt * D * fi).rgb));
     }
 
@@ -434,7 +434,7 @@ vec4 hook() {
     return clamp(c_da, 0.0, 1.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Darken
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Darken
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED

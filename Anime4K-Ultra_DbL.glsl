@@ -498,10 +498,10 @@ vec4 hook() {
 
 
 // =============================================================================
-// COMPONENT: Anime4K_Thin_AA_Smoothen-Deblur-Heavy.glsl
+// COMPONENT: Anime4K_Thin_AA_Deblur-Light.glsl
 // =============================================================================
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Luma-Sharp
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -523,7 +523,7 @@ vec4 hook() {
     return vec4(clamp(c + (c - blur) * LUMA_SHARP_AMOUNT, 0.0, 1.0), 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Sobel-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Sobel-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINELUMA_SHARP
@@ -544,7 +544,7 @@ vec4 hook() {
     return vec4(-l + r, l + c + c + r, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Sobel-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Sobel-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -576,7 +576,7 @@ vec4 hook() {
     return vec4(pow(sqrt(gx * gx + gy * gy), 0.7));
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Gaussian-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Gaussian-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -602,7 +602,7 @@ vec4 hook() {
     return vec4(g / gn, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Gaussian-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Gaussian-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -627,7 +627,7 @@ vec4 hook() {
     return vec4(g / gn, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Kernel-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Kernel-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -650,7 +650,7 @@ vec4 hook() {
     return vec4(-l + r, l + c + c + r, c, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Kernel-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Kernel-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -675,7 +675,7 @@ vec4 hook() {
     return vec4((tx + cx + cx + bx) / 8.0, (-ty + by) / 8.0, mask, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Line-Confidence
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Line-Confidence
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND LINESOBEL
@@ -711,7 +711,40 @@ vec4 hook() {
     return vec4(csum / cwsum, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Warp
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Edge-Sharpness
+//!HOOK MAIN
+//!BIND NATIVE_RES
+//!BIND LINESOBEL
+//!SAVE EDGESHARP
+//!WIDTH NATIVE_RES.w
+//!HEIGHT NATIVE_RES.h
+//!COMPONENTS 1
+
+#define NEAR_PX 4.0   // Inner sample distance (native px) (3.0 - 5.0); raise to tolerate wider AA/soft lines
+#define FAR_PX  8.0   // Outer sample distance (native px) (5.0 - 58.0); ~half worst-case blur width
+#define SHARP_LO 0.20 // far_mass below this → treat as sharp (0.05 - 0.30)
+#define SHARP_HI 0.70 // far_mass above this → treat as blurry (0.30 - 1.00)
+
+vec4 hook() {
+    vec3 sd = LINESOBEL_tex(LINESOBEL_pos).xyz;
+    float M0 = sd.z;
+
+    if (M0 < 0.002) return vec4(1.0, 0.0, 0.0, 0.0);
+
+    float mag = length(sd.xy);
+    vec2 norm = (mag > 0.001) ? sd.xy / mag : vec2(0.0, 1.0);
+
+    float Mn = LINESOBEL_tex(LINESOBEL_pos + norm * LINESOBEL_pt * NEAR_PX).z;
+    float Mp = LINESOBEL_tex(LINESOBEL_pos - norm * LINESOBEL_pt * NEAR_PX).z;
+    float Fn = LINESOBEL_tex(LINESOBEL_pos + norm * LINESOBEL_pt * FAR_PX).z;
+    float Fp = LINESOBEL_tex(LINESOBEL_pos - norm * LINESOBEL_pt * FAR_PX).z;
+
+    float far_mass = (Mn + Mp + Fn + Fp) / (4.0 * M0);
+    float sharpness = 1.0 - smoothstep(SHARP_LO, SHARP_HI, far_mass);
+    return vec4(sharpness, 0.0, 0.0, 0.0);
+}
+
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Warp
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -761,7 +794,7 @@ vec4 hook() {
     return HOOKED_tex(HOOKED_pos + offset);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-PW-Sobel-X
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-PW-Sobel-X
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -783,7 +816,7 @@ vec4 hook() {
     return vec4(-l + r, l + c + c + r, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-PW-Sobel-Y
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-PW-Sobel-Y
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
@@ -808,13 +841,14 @@ vec4 hook() {
     return vec4(gx, gy, sqrt(gx * gx + gy * gy), 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Dealias-Deblur
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Dealias-Deblur
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINESOBEL
 //!BIND LINECONF
+//!BIND EDGESHARP
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DEALIAS_STRENGTH 0.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
@@ -827,7 +861,8 @@ vec4 hook() {
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
 
 vec4 hook() {
-    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
+    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x)
+                      * EDGESHARP_tex(EDGESHARP_pos).x;
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
     vec2 wpos = HOOKED_pos;
@@ -855,7 +890,7 @@ vec4 hook() {
     float darkest = lc, brightest = lc;
     for (int i = 1; i <= DEBLUR_TAPS; i++) {
         float fi = float(i);
-        darkest   = min(darkest,   get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
+        darkest = min(darkest, get_luma(HOOKED_tex(wpos - norm * HOOKED_pt * D * fi).rgb));
         brightest = max(brightest, get_luma(HOOKED_tex(wpos + norm * HOOKED_pt * D * fi).rgb));
     }
 
@@ -878,12 +913,13 @@ vec4 hook() {
     return clamp(c_da, 0.0, 1.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Darken
+//!DESC Anime4K-Ultra-Thin-AA-DB-L-Darken
 //!HOOK MAIN
 //!BIND NATIVE_RES
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
+//!BIND EDGESHARP
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DARKEN_STRENGTH         0.60 // Overall darkening scale (0.0 to ~1.0)
@@ -930,6 +966,7 @@ float valley_at(vec2 p) {
 
 vec4 hook() {
     float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
+                    //   * EDGESHARP_tex(EDGESHARP_pos).x;
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
     vec2 gxy = PWSOBEL_tex(PWSOBEL_pos).xy;

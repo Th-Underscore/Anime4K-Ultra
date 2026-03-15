@@ -498,7 +498,7 @@ vec4 hook() {
 
 
 // =============================================================================
-// COMPONENT: Anime4K_Thin_AA_Smoothen-Deblur-Light.glsl
+// COMPONENT: Anime4K_Thin_AA_Deblur-Heavy.glsl
 // =============================================================================
 
 //!DESC Anime4K-Ultra-Thin-AA-DB-Luma-Sharp
@@ -711,39 +711,6 @@ vec4 hook() {
     return vec4(csum / cwsum, 0.0, 0.0, 0.0);
 }
 
-//!DESC Anime4K-Ultra-Thin-AA-DB-Edge-Sharpness
-//!HOOK MAIN
-//!BIND NATIVE_RES
-//!BIND LINESOBEL
-//!SAVE EDGESHARP
-//!WIDTH NATIVE_RES.w
-//!HEIGHT NATIVE_RES.h
-//!COMPONENTS 1
-
-#define NEAR_PX 4.0   // Inner sample distance (native px) (3.0 - 5.0); raise to tolerate wider AA/soft lines
-#define FAR_PX  8.0   // Outer sample distance (native px) (5.0 - 58.0); ~half worst-case blur width
-#define SHARP_LO 0.20 // far_mass below this → treat as sharp (0.05 - 0.30)
-#define SHARP_HI 0.70 // far_mass above this → treat as blurry (0.30 - 1.00)
-
-vec4 hook() {
-    vec3 sd = LINESOBEL_tex(LINESOBEL_pos).xyz;
-    float M0 = sd.z;
-
-    if (M0 < 0.002) return vec4(1.0, 0.0, 0.0, 0.0);
-
-    float mag = length(sd.xy);
-    vec2 norm = (mag > 0.001) ? sd.xy / mag : vec2(0.0, 1.0);
-
-    float Mn = LINESOBEL_tex(LINESOBEL_pos + norm * LINESOBEL_pt * NEAR_PX).z;
-    float Mp = LINESOBEL_tex(LINESOBEL_pos - norm * LINESOBEL_pt * NEAR_PX).z;
-    float Fn = LINESOBEL_tex(LINESOBEL_pos + norm * LINESOBEL_pt * FAR_PX).z;
-    float Fp = LINESOBEL_tex(LINESOBEL_pos - norm * LINESOBEL_pt * FAR_PX).z;
-
-    float far_mass = (Mn + Mp + Fn + Fp) / (4.0 * M0);
-    float sharpness = 1.0 - smoothstep(SHARP_LO, SHARP_HI, far_mass);
-    return vec4(sharpness, 0.0, 0.0, 0.0);
-}
-
 //!DESC Anime4K-Ultra-Thin-AA-DB-Warp
 //!HOOK MAIN
 //!BIND NATIVE_RES
@@ -848,7 +815,6 @@ vec4 hook() {
 //!BIND PWSOBEL
 //!BIND LINESOBEL
 //!BIND LINECONF
-//!BIND EDGESHARP
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DEALIAS_STRENGTH 0.25 // Interpolation strength (0.0 to ~2.0); >1.0 mathematically extrapolates to aggressively force AA
@@ -861,8 +827,7 @@ vec4 hook() {
 float get_luma(vec3 rgb) { return dot(vec3(0.299, 0.587, 0.114), rgb); }
 
 vec4 hook() {
-    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x)
-                      * EDGESHARP_tex(EDGESHARP_pos).x;
+    float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
     vec2 wpos = HOOKED_pos;
@@ -919,7 +884,6 @@ vec4 hook() {
 //!BIND HOOKED
 //!BIND PWSOBEL
 //!BIND LINECONF
-//!BIND EDGESHARP
 
 #define D (0.75 * HOOKED_size.y / NATIVE_RES_size.y)
 #define DARKEN_STRENGTH         0.60 // Overall darkening scale (0.0 to ~1.0)
@@ -966,7 +930,6 @@ float valley_at(vec2 p) {
 
 vec4 hook() {
     float effect_mask = smoothstep(CONF_LOW, CONF_HIGH, LINECONF_tex(LINECONF_pos).x);
-                    //   * EDGESHARP_tex(EDGESHARP_pos).x;
     if (effect_mask < 0.001) return HOOKED_tex(HOOKED_pos);
 
     vec2 gxy = PWSOBEL_tex(PWSOBEL_pos).xy;
