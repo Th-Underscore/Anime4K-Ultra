@@ -3,7 +3,7 @@
 // Compiled by: Th-Underscore (2026)
 //
 // FEATURES:
-// - Combines FSR v1.0.2 and Custom Anime4K_Thin w/ De-Aliasing + Deblur
+// - Combines FSR v1.0.2/Anime4K_Upscale_CNN and Custom Anime4K_Thin w/ De-Aliasing + Deblur
 // - Designed specifically to preserve film grain and fine textures
 // - Significantly lighter performance than Anime4K (Fast)
 //
